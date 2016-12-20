@@ -60,20 +60,20 @@ xy <- c(x, y)
 # Plotting data
 p <- ggdistribution(dnorm, x = seq(-10, 14, 0.1), mean = 2, sd = 4, fill = "blue", alpha = 0.2) +
   geom_vline(xintercept = 2, linetype = "longdash") +
-  scale_x_continuous(breaks = seq(-10, 14, 1))
+  scale_x_continuous(breaks = seq(-10, 14, 2))
 
 p <- ggdistribution(dnorm, x = seq(-10, 14, 0.1), p = p, mean = 2.5, sd = 4, fill = "red", alpha = 0.2) +
   geom_vline(xintercept = 2.5, linetype = "longdash") +
   ggtitle(label = "Theoretical distributions")
 
-p
-
 q <- autoplot(density(x), fill = "blue")
 q <- autoplot(density(y), p = q, fill = "red") +
   ggtitle("Experimental data") +
-  scale_x_continuous(breaks = seq(-10, 14, 1))
+  scale_x_continuous(breaks = seq(-10, 14, 2))
 
-multiplot(p, q, cols=2)
+q
+
+multiplot(p, q, cols = 2)
 
 
 
@@ -100,15 +100,15 @@ nested.model.l <- dnorm(xy, mean = xy.params$minimum, sd = 4) %>% prod
 
 
 #4.4.3. Compute the likelihood ratio test statistic and the p-value.
-# compute q, the quotient of the likelihood of both models
-quotient <- nested.model.l / full.model.l
+# compute q, the q of the likelihood of both models
+q <- nested.model.l / full.model.l
 
 # likelihood ratio test
 #-2log(q) ~ chi squared with d - d0 degrees of freedom
 # dimensions of the full model (3)
 # dimensions of the nested model (2)
 # d - d0 = 1
-lrt.pval <- 1 - pchisq(-2*log(quotient), df = 1)
+lrt.pval <- 1 - pchisq(-2*log(q), df = 1)
 # the null hypothesis is likely enough (there's not enought evidence that it is false)
 # we can't reject the null hypothesis -> the nested model is sufficient
 # (there's no evidence that the means are different)
@@ -122,5 +122,6 @@ ggplot(data = data.frame(test = as.factor(c("Likelihood ratio", "Student's T")),
   scale_y_continuous(limits = 0:1)
 
 
-p <- ggdistribution(dchisq, x = seq(0, 3, 0.05), df = 1, fill = "red") + 
-  geom_vline(xintercept = -2 * log(quotient))
+# p <- ggdistribution(dchisq, x = seq(0.005, 3, 0.005), df = 1, fill = "red") + 
+#   geom_vline(xintercept = statistic)
+# p

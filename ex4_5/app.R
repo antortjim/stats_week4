@@ -15,10 +15,11 @@ ui <- fluidPage(
   )),
   
   fluidRow(
-    column(width = 7, offset = 3,
+    column(12,
            sliderInput(inputId = "p",
            label = "Select probability of the random interval covering μ",
            value = 0.95, min = 0.5, max = 0.99))),
+  
   fluidRow(
     column(width = 4, offset = 3,
           textOutput("zvalue"))),
@@ -29,19 +30,18 @@ ui <- fluidPage(
 )
 
 # Initalize parameters of the simulation and data structures
-mu <- 2
-sigma <- 3
 
 server <- function(input, output, session) {
-      
+  
+      mu <- 2
+      sigma <- 3
       simulateData <- function(input, output) {
         # Reactive expression that should not become invalid
         # if input$alpha changes
 
-        # N <- 100 Feed as input
         sem.realiz <- numeric(length = input$N)
         mean.realiz <- numeric(length = input$N)
-        
+        print(mu)
         # Simulate N samples of N(mu, sigma) and compute confidence interval of the mean of the sample
         for(i in 1:input$N) {
           # Simulate data
@@ -63,7 +63,7 @@ server <- function(input, output, session) {
       
       generateDataFrame <- function(input, output, realizations)  {
         
-        z <- qnorm(input$p + (1 - input$p) / 2 )
+        z <- qt(input$p + (1 - input$p) / 2, df = input$n - 1 )
         inferior <- realizations[[1]] - z * realizations[[2]]
         superior <- realizations[[1]] + z * realizations[[2]]
         
@@ -83,21 +83,18 @@ server <- function(input, output, session) {
         return(list(df, z = z))
       }
       
-      realizations <- reactive({
-       #invalidateLater(3000, session)
-       simulateData(input, output)
-      })
       
       computeStatistics <- function(df) {
         fraction <- sum(df$R) / length(df$R)
         fraction <- fraction * 100
         round(fraction, digits = 4)
         return(fraction)
-      }
+      }     
       
-      # observe({
-      #   print(realizations())
-      # })
+      realizations <- reactive({
+       simulateData(input, output)
+      })
+      
       
       df <- reactive({
        generateDataFrame(input, output, realizations())[[1]]
@@ -113,7 +110,7 @@ server <- function(input, output, session) {
       })
       
       output$zvalue <- renderText({
-        paste("Percentil of N ~ (0, 1): Z", z(), sep = "")
+        paste("Percentil of t ~ (df = ", input$n - 1, "): Z", z(), sep = "")
       })
               
       observeEvent(input$go, {
@@ -121,7 +118,6 @@ server <- function(input, output, session) {
   
         # Generate ggplot
         result <- df()[["R"]]
-        # observe(env = environment(), { print(result) })
         
         p <- ggplot(df(), aes(x = X, y = MU)) +
         geom_hline(yintercept = mu) +
