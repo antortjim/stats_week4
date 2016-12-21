@@ -386,7 +386,7 @@ result <- mu > inferior & mu < superior
 ## Visualization [App](https://antortjim.shinyapps.io/shiny_4_5/) 
 
 ```{r, echo = F}
-shinyAppFile(appFile = "ex4_5/app.R")
+shinyAppFile(appFile = "https://antortjim.shinyapps.io/shiny_4_5/")
 ```
 
 ## 4.6 - Power of a statistical test
