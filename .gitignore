@@ -1,0 +1,6 @@
+*.R
+ex4_?/rsconect/*
+!ex4.Rmd
+!ex4.html
+!figures/*
+!ex4_?/app.R

@@ -6,23 +6,21 @@ neuron <- read.table("http://math.ku.dk/~tfb525/teaching/statbe/neuronspikes.txt
 
 # Expressions we want to minimize
 mllk.gamma <- function(params, data) {
-  -(dgamma(data, shape = params[1], rate = params[2]) %>% log %>% sum)
+  -(dgamma(data, shape = params[1], rate = params[2], log = T) %>% sum)
 }
 
 mllk.exponential <- function(rate, data) {
-  -(dexp(data, rate) %>% log %>% sum)
+  -(dexp(data, rate, log = T) %>% sum)
 }
 
-# Optimize
-exp.optim <- optimize(mllk.exponential, interval = c(-10, 10), data = neuron$time)
-exp.optim <- exp.optim$minimum
-
+# Optimize and compute minus log likelihood
+exponential.optim <- optimize(mllk.exponential, interval = c(-10, 10), data = neuron$time)
 gamma.optim <- optim(c(1, 1), mllk.gamma, data = neuron$time)
 
-MLL1 <- mllk.exponential(exp.optim, neuron$time)
-MLL2 <- mllk.gamma(gamma.optim$par, neuron$time)
+# Compute statistic
+statistic <- 2 * (exponential.optim$objective - gamma.optim$value)
 
-statistic <- 2 * (MLL1 - MLL2)
+# Compute p value
 p.value <- 1 - pchisq(statistic, df = 1)
 
 
@@ -31,7 +29,7 @@ ui <- fluidPage(
   titlePanel("Which distribution fits best the neuron dataset?"),
   sidebarPanel(sliderInput(inputId = "lambda",
                         label = "Choose exponential rate",
-                        value = exp.optim, min = 0.01, max = 3),
+                        value = exponential.optim$minimum, min = 0.01, max = 3),
             sliderInput(inputId = "shape",
                         label = "Choose shape",
                         value = gamma.optim$par[1], min = 0.01, max = 3),
@@ -39,7 +37,7 @@ ui <- fluidPage(
                         label = "Choose rate",
                         value = gamma.optim$par[2], min = 0.01, max = 3),
             helpText("Parameters initialized at optimal values"),
-            helpText("Modify to see changes")), # end of sidebarPanel
+            helpText("This is the best possible fit for both distributions, check on your own! :)")), # end of sidebarPanel
 
   
   mainPanel(

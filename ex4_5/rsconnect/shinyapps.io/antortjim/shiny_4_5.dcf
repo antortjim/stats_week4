@@ -2,8 +2,9 @@ name: shiny_4_5
 account: antortjim
 server: shinyapps.io
 appId: 145681
-bundleId: 654308
+bundleId: 656673
 url: https://antortjim.shinyapps.io/shiny_4_5/
-when: 1482109744.7907
+when: 1482281470.87373
 asMultiple: FALSE
 asStatic: FALSE
+ignoredFiles: ex4_5.R

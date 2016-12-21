@@ -10,7 +10,7 @@ runtime: shiny
 ---
 
 ```{r setup, include = FALSE, tidy = T}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE, root.dir = '/home/antortjim/MEGA/Master/STATS/week4/exercises')
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
 
 ```{r, echo = F, message = F}
@@ -102,7 +102,7 @@ $Y \sim N(\mu = 2.5, \sigma = 4)$
 
 
 
-```{r, echo = T}
+```{r, echo = T, eval = T}
 x <- rnorm(20, 2, 4)
 y <- rnorm(40, 2.5, 4)
 xy <- c(x, y)
@@ -167,8 +167,7 @@ Minimise: $-\sum { \log { f_N\left( x_{ i } \right)  } }$
 
 ```{r, echo = T}
 mllk.normal <- function(params, data) {
-  #-(sum(log(dnorm(data, mean = params, sd = 4))))
-  -(data %>% dnorm(mean = params[1], sd = params[2]) %>% log %>% sum)
+  -(data %>% dnorm(mean = params[1], sd = params[2], log = T) %>% sum)
 }
 ```
 
@@ -185,11 +184,11 @@ $- \left( \sum_{ i = 1 }^{ 20 } { \log { f_X\left( x_{ i } \right)  } } + \sum_{
 
 ```{r, echo = T}
 # Full model
-x.params <- optim(c(1, 1), mllk.normal, data = x)
-y.params <- optim(c(1, 1), mllk.normal, data = y)
+full.model.x <- optim(c(1, 1), mllk.normal, data = x)
+full.model.y <- optim(c(1, 1), mllk.normal, data = y)
 
 # Nested model
-xy.params <- optim(c(1, 1), mllk.normal, data = xy)
+nested.model <- optim(c(1, 1), mllk.normal, data = xy)
 
 ```
 
@@ -200,11 +199,10 @@ xy.params <- optim(c(1, 1), mllk.normal, data = xy)
 
 ```{r, echo = T}
 # Full model
-full.model.l <- c(dnorm(x, mean = x.params$par[1], sd = x.params$par[2]),
-                  dnorm(y, mean = y.params$par[1], sd = y.params$par[2])) %>% prod
+full.model.mllk <- full.model.x$value + full.model.y$value
 
 # Nested model
-nested.model.l <- dnorm(xy, mean = xy.params$par[1], sd = xy.params$par[2]) %>% prod
+nested.model.mllk <- nested.model$value
 ```
 
 ## 4.4.3 - Compute the LRT statistic and the p-value
@@ -214,7 +212,7 @@ Compute the quotient of likelihoods between the nested model and the full model
 *This quotient will ALWAYS be* $\le 1$
 
 ```{r, echo = T}
-q <- nested.model.l / full.model.l
+q <- nested.model.mllk - full.model.mllk
 ```
 
 A statistic based on q is said to follow a $\chi^2$ distribution if the nested model captures the same info as the full one
@@ -222,7 +220,7 @@ A statistic based on q is said to follow a $\chi^2$ distribution if the nested m
 $-2\log{\left( q \right)} \sim \chi^{2}_{n}$
 
 ```{r}
-statistic <- -2 * log(q)
+statistic <- 2 * q
 ```
 
 ## P-value (LRT)
@@ -266,92 +264,51 @@ ggplot(data = data.frame(test = as.factor(c("Likelihood ratio", "Student's T")),
 N <- 1000
 t.values <- numeric(N)
 lrt.values <- numeric(N)
-  
-mllk.normal <- function(params, data) {
-  sum(-log(dnorm(data, mean = params, sd = 4)))
-}
- 
+
+# Progress bar: uncomment while debugging  
+#pb <- tcltk::tkProgressBar(title = "progress bar", min = 0,
+#                    max = N, width = 300)
+
 for(i in 1:N)
 {
   x <- rnorm(20, 2, 4)
-  y <- rnorm(40, 100, 4)
+  y <- rnorm(40, 2.5, 4)
   x.mean <- mean(x)
   y.mean <- mean(y)
   xy <- c(x, y)
   
-  # Plotting data
-#  p <- ggdistribution(dnorm, x = seq(-10, 14, 0.1), mean = 2, sd = 4, fill = "blue", alpha = 0.2) +
-#    geom_vline(xintercept = 2, linetype = "longdash") +
-#    scale_x_continuous(breaks = seq(-10, 14, 2))
-#  
-#  p <- ggdistribution(dnorm, x = seq(-10, 14, 0.1), p = p, mean = 2.5, sd = 4, fill = "red", alpha = 0.2) +
-#    geom_vline(xintercept = 2.5, linetype = "longdash") +
-#    ggtitle(label = "Theoretical distributions")
-#  
-#  q <- autoplot(density(x), fill = "blue")
-#  q <- autoplot(density(y), p = q, fill = "red") +
-#    ggtitle("Experimental data") +
-#    scale_x_continuous(breaks = seq(-10, 14, 2))
-#  
-#  q
+  # Full model
+  full.model.x <- optim(c(1, 1), mllk.normal, data = x)
+  full.model.y <- optim(c(1, 1), mllk.normal, data = y)
+  full.model.mllk <- full.model.x$value + full.model.y$value
   
-#  multiplot(p, q, cols = 2)
+  # Nested model
+  nested.model <- optim(c(1, 1), mllk.normal, data = xy)
+  nested.model.mllk <- nested.model$value
+  
+  q <- nested.model.mllk - full.model.mllk
+  
+  statistic <- 2 * q
+  
+  lrt.pval <- 1 - pchisq(statistic, df = 1)
   
   
- 
+  ttest.pval <- t.test(x, y,
+                       var.equal = TRUE,
+                       alternative = "two.sided")$p.value
   
-  # 4.4.2 Perform the maximum likelihood estimation for the full model and the nested model, and compute
-  #the maximized likelihood values (or the minimized minus-log-likelihood values)
-  
-  # optimize parameters for the full and nested models
-  x.params <- optimize(mllk.normal, interval = c(-10, 10), data = x)
-  y.params <- optimize(mllk.normal, interval = c(-10, 10), data = y)
-  xy.params <- optimize(mllk.normal, interval = c(-10, 10), data = xy)
-  
-  # compute likelihood of full model using optimized parameters
-  
-  mllk.full <- x.params$objective + y.params$objective
-  mllk.nested <- xy.params$objective
-  
-  # full.model.l <- c(dnorm(x, mean = x.params$minimum, sd = 4),
-  #                     dnorm(y, mean = y.params$minimum, sd = 4)) %>% prod
-  # 
-  # 
-  # # compute likelihood of nested model using optimized parameters
-  # nested.model.l <- dnorm(xy, mean = xy.params$minimum, sd = 4) %>% prod
-  
-  
-  #4.4.3. Compute the likelihood ratio test statistic and the p-value.
-  # compute q, the q of the likelihood of both models
-  q <- mllk.nested - mllk.full
-  q <- nested.model.l / full.model.l
-  
-  # likelihood ratio test
-  #-2log(q) ~ chi squared with d - d0 degrees of freedom
-  # dimensions of the full model (3)
-  # dimensions of the nested model (2)
-  # d - d0 = 1
-  lrt.pval <- 1 - pchisq(-2*log(q), df = 1)
-  # the null hypothesis is likely enough (there's not enought evidence that it is false)
-  # we can't reject the null hypothesis -> the nested model is sufficient
-  # (there's no evidence that the means are different)
-  
-  #4.4.4. Perform a two-sample t-test for x and y with equal variance. Do you get the same p-value?
-  # students t test
-  ttest.pval <- t.test(x, y, var.equal = TRUE, alternative = "two.sided")$p.value
-  
-  # Store p values
-  lrt.values[i] <- lrt.pval
   t.values[i] <- ttest.pval
+  lrt.values[i] <- lrt.pval
+  
+  # setTkProgressBar(pb, i,
+  #                  label = paste( round(i / N * 100, 0), "% done"))
 }
 
 pvalue.data <- data.frame(id = factor(rep(c("t.test", "lrt"), each = N)), value = c(t.values, lrt.values))
 
-ggplot(pvalue.data, aes(x = value, fill = id)) + geom_histogram(alpha = 0.5, position = "identity")
-hist(t.values)
-hist(lrt.values)
-
-
+# ggplot(pvalue.data, aes(x = value, fill = id)) + geom_histogram(alpha = 0.5, position = "identity")
+# hist(t.values)  
+# hist(lrt.values) # TODO: Find out why lrt and t test p values don't follow the same distribution
 ```
 
 
@@ -389,10 +346,6 @@ x <- rnorm(n, mu, sigma)
 Process each sample 
 
 ```{r, echo = T}
-# Fix p to 0.95
-p <- 0.95
-# Extract percentil 0.975
-z <- qt(p + (1 - p) / 2, df = n - 1 )
 # Compute mean and sem of sample
 average <- mean(x)
 sem <- sd(x) / sqrt(n)
@@ -403,8 +356,13 @@ sem <- sd(x) / sqrt(n)
 Build the confidence interval
 
 ```{r, echo = T}
+p <- 0.95  # Fix p to 0.95
+z <- qt(p + (1 - p) / 2, df = n - 1 )  # Extract percentil 0.975
+
 inferior <- average - z * sem
 superior <- average + z * sem
+inferior
+superior
 ```
 
 ## 4.5.4 - Check if the confidence interval contains μ and output a True or False.
@@ -419,10 +377,16 @@ result <- mu > inferior & mu < superior
 
 * Store mean and sem of each sample
 
+   + *average* and *sem* become vectors storing each sample mean and sem
+  
+* *result* becomes a logical vector
+   
+   + Element i tells if the CI i contains $\mu$ or not
+
 ## Visualization [App](https://antortjim.shinyapps.io/shiny_4_5/) 
 
 ```{r, echo = F}
-shinyAppDir(appDir = "ex4_5/")
+shinyAppFile(appFile = "ex4_5/app.R")
 ```
 
 ## 4.6 - Power of a statistical test
@@ -590,7 +554,6 @@ tau <- seq(from = lower, to = upper, length.out = length.out)
 ```
 
 ```{r, echo = T, include = F}
-
 alpha <- curve( {1 - pnorm(x, mean = 0, sd = 1)},
                 from = lower, to = upper, n = length.out)$y
 
@@ -616,8 +579,8 @@ data$id <- 1:nrow(data)
 
 base <- data %>%
   ggvis(~τ, ~value, stroke = ~name, key := ~id) %>%
-  #layer_lines(strokeWidth := 5) %>%
   layer_points(fill = ~name)
+
 base %>% add_tooltip(function(data){paste0(data$name, "<br />Value: ", round(data$value, digits = 2), "<br />Tau:", data$tau)}, "hover")
 ```
 
@@ -651,46 +614,27 @@ neuron <- read.table("http://math.ku.dk/~tfb525/teaching/statbe/neuronspikes.txt
 
 ```{r, echo = T}
 mllk.gamma <- function(params, data) {
-  -(dgamma(data, shape = params[1], rate = params[2]) %>% log %>% sum)
+  -(dgamma(data, params[1], params[2], log = T) %>% sum)
 }
 
 mllk.exponential <- function(rate, data) {
-  -(dexp(data, rate) %>% log %>% sum)
+  -(dexp(data, rate, log = T) %>% sum)
 }
 ```
 
-## Optimise
+## Optimise and compute -log(Likelihood)
 
 ```{r, echo = T, message = F, warning= F}
-exp.optim <- optimize(mllk.exponential, interval = c(-10, 10), data = neuron$time)
-exp.optim <- exp.optim$minimum
-
+exponential.optim <- optimize(mllk.exponential, interval = c(-10, 10), data = neuron$time)
 gamma.optim <- optim(c(1, 1), mllk.gamma, data = neuron$time)
 ```
 
-## Compute likelihoods and statistic
 
-```{r, echo = T}
-MLL1 <- mllk.exponential(exp.optim, neuron$time)
-MLL2 <- mllk.gamma(gamma.optim$par, neuron$time)
+## Likelihood ratio test: statistic and p-value 
 
-statistic <- 2 * (MLL1 - MLL2)
-```
-
-```{r, eval = T}
-MLL1
-MLL2
-statistic
-```
-
-
-## Compute p-value
-
-```{r, echo = T}
+```{r, echo = T, eval = T}
+statistic <- 2 * (exponential.optim$objective - gamma.optim$value)
 p.value <- 1 - pchisq(statistic, df = 1)
-```
-
-```{r, eval = T}
 p.value
 ```
 
@@ -703,7 +647,7 @@ The obtained p-value is very low, thus we discard the null hypothesis
 ## Visualization [App](https://antortjim.shinyapps.io/ex4_7/) 
 
 ```{r, echo = F}
-shinyAppDir(appDir = "ex4_7/")
+shinyAppFile(appFile = "ex4_7/app.R")
 ```
 
 
