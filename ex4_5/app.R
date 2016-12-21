@@ -2,31 +2,26 @@ library(shiny)
 library("ggplot2")
 
 ui <- fluidPage(
-  wellPanel(
-  fluidRow(
-    column(width = 5, numericInput(inputId = "N", 
-                                       label = "Choose number of simulations",
-                                       value = 25, min = 25, max = 1000, step = 1)),
-    column(3, numericInput(inputId = "n",
-                           label = "Choose sample size",
-                           value = 20, min = 20, max = 100)),
-    column(4, actionButton(inputId = "go",
-                           label = "Plot"))
-  )),
+  titlePanel("Exploring confidence intervals"),
+  sidebarPanel(
+    numericInput(inputId = "N", 
+                 label = "Choose number of simulations (N)",
+                 value = 25, min = 25, max = 1000, step = 1),
+    numericInput(inputId = "n",
+                 label = "Choose sample size (n)",
+                 value = 20, min = 20, max = 100),
+    helpText("Simulate N samples of size n and plot confidence intervals if N is up to 100"),
+    #actionButton(inputId = "go", label = "Plot"),
+sliderInput(inputId = "p",
+            label = "Select probability of the random interval covering μ",
+            value = 0.95, min = 0.5, max = 0.99),
+    helpText("Modifies the CI so that μ is covered with the selected probability")
+  ), #end sidebarPanel
   
-  fluidRow(
-    column(12,
-           sliderInput(inputId = "p",
-           label = "Select probability of the random interval covering μ",
-           value = 0.95, min = 0.5, max = 0.99))),
-  
-  fluidRow(
-    column(width = 4, offset = 3,
-          textOutput("zvalue"))),
-  fluidRow(
-    column(4, offset = 3, textOutput("statistics"))),
-  
-  plotOutput('plot1')
+  mainPanel(
+  plotOutput('plot1'),
+  tableOutput('summary')
+  ) # end mainPanel
 )
 
 # Initalize parameters of the simulation and data structures
@@ -41,7 +36,7 @@ server <- function(input, output, session) {
 
         sem.realiz <- numeric(length = input$N)
         mean.realiz <- numeric(length = input$N)
-        print(mu)
+        
         # Simulate N samples of N(mu, sigma) and compute confidence interval of the mean of the sample
         for(i in 1:input$N) {
           # Simulate data
@@ -104,44 +99,52 @@ server <- function(input, output, session) {
         generateDataFrame(input, output, realizations())[[2]]
       })
      
-      output$statistics <- renderText({
-        fraction <- computeStatistics(df())
-        paste("Fraction of intervals covering μ: ", fraction, " %", sep = "")
+      fraction <- reactive({
+        computeStatistics(df())
       })
       
-      output$zvalue <- renderText({
-        paste("Percentil of t ~ (df = ", input$n - 1, "): Z", z(), sep = "")
-      })
-              
-      observeEvent(input$go, {
-        output$plot1 <- renderPlot({
-  
-        # Generate ggplot
-        result <- df()[["R"]]
-        
-        p <- ggplot(df(), aes(x = X, y = MU)) +
-        geom_hline(yintercept = mu) +
-        geom_errorbar(aes(ymax = U, ymin = L)) +
-        geom_point(aes(y = m.real), size = 2) +
-        scale_y_continuous(limits = c(mu - 5, mu + 5))
-        # Add colors according to result
-        for(i in 1:input$N) {
-          left <- i - 0.5
-          right <- i + 0.5
-          if(result[i]) {
-            # If the mean is contained in the CI, give green background
-            p <- p + geom_rect(aes(ymin= -Inf, ymax = Inf), fill = "green", xmin = left, xmax = right, alpha = 0.01)
-          } else {
-            # Else, give red background
-            p <- p + geom_rect(aes(ymin= -Inf, ymax = Inf), fill = "red", xmin = left, xmax = right, alpha = 0.01)
-          }
-        }
-        p <- p + theme_bw()
-        return(p)
-        })
-        
+        output$summary <- renderTable({
+        df <- data.frame(fraction(), z())
+        names(df) <- c("Fraction of successful intervals", "Selected percentil in t")
+        df
+      }, include.rownames = FALSE)
+      
 
-      })
+      
+      observe({
+            if(input$N <= 100) {
+            output$plot1 <- renderPlot({
+              # Generate ggplot
+              result <- df()[["R"]]
+              p <- ggplot(df(), aes(x = X, y = MU)) +
+              geom_hline(yintercept = mu) +
+              geom_errorbar(aes(ymax = U, ymin = L)) +
+              geom_point(aes(y = m.real), size = 2) +
+              scale_y_continuous(name = "X", limits = c(mu - 5, mu + 5)) +
+              scale_x_continuous(name = "Simulations") +
+              ggtitle("Confidence intervals at α selected by user")
+              # Add colors according to result
+              for(i in 1:input$N) {
+                left <- i - 0.5
+                right <- i + 0.5
+                if(result[i]) {
+                  # If the mean is contained in the CI, give green background
+                  p <- p + geom_rect(aes(ymin= -Inf, ymax = Inf), fill = "green", xmin = left, xmax = right, alpha = 0.01)
+                } else {
+                  # Else, give red background
+                  p <- p + geom_rect(aes(ymin= -Inf, ymax = Inf), fill = "red", xmin = left, xmax = right, alpha = 0.01)
+                }
+              }
+              p <- p + theme_bw()
+              p
+            
+              })
+            } else {
+              output$plot1 <- renderPlot({
+                ggplot()
+              })
+            }
+        })
 }
 
 shinyApp(ui = ui, server = server)

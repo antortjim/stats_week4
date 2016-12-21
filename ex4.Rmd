@@ -3,17 +3,32 @@ title: "Statistics for e-Science"
 subtitle: "Week 4 exercises"
 author: "Tycho Canter, Gowthami Rajukkannu and Antonio Ortega"
 date: "December 19, 2016"
-output: ioslides_presentation
+output: 
+  ioslides_presentation: 
+    logo: figures/ku_logo.png
+    widescreen: yes
 runtime: shiny
 ---
 
 ```{r setup, include = FALSE, tidy = T}
-knitr::opts_chunk$set(echo = FALSE, root.dir = '/home/antortjim/MEGA/Master/STATS/week4/exercises')
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, root.dir = '/home/antortjim/MEGA/Master/STATS/week4/exercises')
 ```
 
 ```{r, echo = F, message = F}
 library("ggfortify")
 library("magrittr")
+library("ggplot2")
+library("ggvis")
+library("dplyr")
+library("shiny")
+library("grid")
+library("png")
+text_size <- 18
+theme_set(theme_bw(base_size = text_size))
+
+# p <- ggplot(mtcars, aes(mpg, wt)) +
+#   geom_point()
+# p
 
 # Multiple plot function
 #
@@ -26,7 +41,6 @@ library("magrittr")
 # 3 will go all the way across the bottom.
 #
 multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
   
   # Make a list from the ... arguments and plotlist
   plots <- c(list(...), plotlist)
@@ -63,11 +77,15 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 
 ```
 
-## Exercise 4.4
+## Exercise 4.4 - Full and nested models
 
-**The likelihood ratio test and the two-sample t-test**
+```{r fig.width = 6, echo = FALSE}
+img <- readPNG("figures/investigacion.png")
+grid.raster(img)
+```
 
-Checking the potential of the likelihood ratio and the two-sample t tests.
+
+## Is the nested model enough?
 
 - Simulate data coming from similar, but *not identical* normal distributions
 
@@ -150,7 +168,8 @@ Minimise: $-\sum { \log { f_N\left( x_{ i } \right)  } }$
 
 ```{r, echo = T}
 mllk.normal <- function(params, data) {
-  -(sum(log(dnorm(data, mean = params, sd = 4))))
+  #-(sum(log(dnorm(data, mean = params, sd = 4))))
+  -(data %>% dnorm(mean = params, sd = 4) %>% log %>% sum)
 }
 ```
 
@@ -183,12 +202,10 @@ xy.params <- optimize(mllk.normal, interval = c(-10, 10), data = xy)
 ```{r, echo = T}
 # Full model
 full.model.l <- c(dnorm(x, mean = x.params$minimum, sd = 4),
-                  dnorm(y, mean = y.params$minimum, sd = 4)) %>%
-  prod
+                  dnorm(y, mean = y.params$minimum, sd = 4)) %>% prod
 
 # Nested model
-nested.model.l <- dnorm(xy, mean = xy.params$minimum, sd = 4) %>%
-  prod
+nested.model.l <- dnorm(xy, mean = xy.params$minimum, sd = 4) %>% prod
 ```
 
 ## 4.4.3 - Compute the LRT statistic and the p-value
@@ -249,7 +266,12 @@ ggplot(data = data.frame(test = as.factor(c("Likelihood ratio", "Student's T")),
 
 ## 4.5 - Simulations on Confidence Intervals
 
-Study the behaviour of Confidence Intervals according to:
+```{r fig.width = 6, echo = FALSE}
+img <- readPNG("figures/stars.png")
+grid.raster(img)
+```
+
+## Study the behaviour of Confidence Intervals according to:
 
 * Sample size
 
@@ -278,12 +300,12 @@ Process each sample
 ```{r, echo = T}
 # Fix p to 0.95
 p <- 0.95
-# Extract percentil 95
+# Extract percentil 0.975
 z <- qnorm(p + (1 - p) / 2, mean = mu, sd = sigma)
 
 # Compute mean and sem of sample
 average <- mean(x)
-sem <- sd(x)/sqrt(n)
+sem <- sd(x) / sqrt(n)
 ```
 
 ## 4.5.3 - Compute the 95%-confidence interval for μ using data x.
@@ -310,14 +332,224 @@ result <- mu > inferior & mu < superior
 ## Visualization
 
 ```{r, echo = F}
-library("shiny")
 shinyAppDir(appDir = "ex4_5/")
 ```
 
+## 4.6 - Power of a statistical test
+
+```{r fig.width = 6, echo = FALSE}
+img <- readPNG("figures/StatPower.png")
+grid.raster(img)
+```
+
+## Formulation of the problem
+
+* A blood test measurement follows the $X$ distribution
+
+* $X \sim N(\mu, \sigma)$
+
+* Healthy population $\rightarrow X_1 \sim N(\mu = 0, \sigma = 1)$
+
+* Sick population $\rightarrow X_2 \sim N(\mu = 2, \sigma = 1)$
+
+## Formulation of the problem
+
+```{r, include = F}
+lower <- -5
+upper <- +7
+length.out <- 1001
+
+healthy <- curve(dnorm(x, mean = 0, sd = 1), from = lower, to = upper, n = length.out)$y
+sick <- curve(dnorm(x, mean = 2, sd = 1), from = lower, to = upper, n = length.out)$y
+blood.data <- data.frame(id = factor(rep(c("healthy", "sick"), each = length.out)),
+                         X = seq(lower, upper, length.out = length.out), 
+                         p = c(healthy, sick))
+```
+```{r}
+p <- ggplot(data = blood.data, aes(x = X, y = p, fill = id)) +
+  geom_area(alpha = 0.5, position = 'identity') +
+  geom_line(size = 1.5, aes(col = id)) + 
+  guides(col = FALSE) +
+  scale_fill_discrete(name = "Population",
+                    breaks = c("healthy", "sick"),
+                    labels = c("Healthy", "Sick")) +
+  scale_y_continuous(name = "Density") +
+  scale_x_continuous(limits = c(lower, upper))
+  
+p
+```
+
+
+## Formulation of the problem
+
+* Statistical test to tell if person is sick
+
+* The null hypothesis assumes that the measurement comes from $X_1$
+
+$H_0: E(X) = 0$
+
+* We reject the null hypothesis if statistic is greater than a threshold
+
+$t\left(X\right) > \tau$
+
+* The statistic used is X itself for simplicity (no need to process it)
+
+## 4.6.1 - Calculating the probability of α and β
+
+* Use $\tau = 2$
+
+* Type I errors (α) are false positives. Very dangerous in science!
+
+* Type II errors (β) are false negatives
+
+* The power of the test is 1 - β
+
+## 4.6.1 - Calculating the probability of α
+
+```{r}
+  tau <- 2
+  ggplot(data = subset(blood.data, id == "healthy"), aes(x = X, y = p, fill = "red")) +
+  geom_area(alpha = 0.5, position = 'identity') +
+  geom_line(size = 1.5, col = "red") + 
+  guides(col = FALSE, fill = FALSE) +
+  scale_fill_discrete(name = "Population",
+                    breaks = c("healthy", "sick"),
+                    labels = c("Healthy", "Sick")) +
+  scale_y_continuous(name = "Density") +
+  scale_x_continuous(name = "τ", limits = c(lower, upper), breaks = seq(lower, upper, 1))
+
+```
+
+## 4.6.1 - Calculating the probability of α
+
+```{r}
+  ggplot(data = filter(blood.data, id == "healthy" & X < tau), aes(x = X, y = p), aes(x = X, y = p)) +
+  geom_area(alpha = 0.5, position = 'identity', fill = "red") +
+  geom_line(size = 1.5, col = "red") + 
+  scale_y_continuous(name = "Density") +
+  scale_x_continuous(name = "τ", limits = c(lower, upper), breaks = seq(lower, upper, 1)) +
+  geom_area(data = filter(blood.data, id == "healthy" & X > tau), aes(x = X, y = p),
+            fill = "grey9") +
+  geom_line(data = filter(blood.data, id == "healthy" & X > tau),
+            size = 1.5, col = "grey9") +
+  scale_fill_discrete(name = "Population",
+                    breaks = c("healthy", "sick"),
+                    labels = c("Healthy", "Sick"))
+```
+
+
+## 4.6.1 - Calculating the probability of α
+
+```{r, echo = T}
+1 - pnorm(q = 2, mean = 0, sd = 1)
+```
+
+## 4.6.1 - Calculating the probability of β
+
+```{r}
+  ggplot(data = subset(blood.data, id == "sick"), aes(x = X, y = p)) +
+  geom_area(alpha = 0.5, position = 'identity', fill = "blue") +
+  geom_line(size = 1.5, col = "blue") + 
+  guides(col = FALSE, fill = FALSE) +
+  scale_fill_discrete(name = "Population",
+                    breaks = c("healthy", "sick"),
+                    labels = c("Healthy", "Sick")) +
+  scale_y_continuous(name = "Density") +
+  scale_x_continuous(name = "τ", limits = c(lower, upper), breaks = seq(lower, upper, 1))
+
+```
+
+## 4.6.1 - Calculating the probability of β
+
+```{r}
+  ggplot(data = filter(blood.data, id == "sick" & X < tau), aes(x = X, y = p), aes(x = X, y = p)) +
+  geom_area(alpha = 0.5, position = 'identity', fill = "blue") +
+  geom_line(size = 1.5, col = "blue") + 
+  scale_y_continuous(name = "Density") +
+  scale_x_continuous(name = "τ", limits = c(lower, upper), breaks = seq(lower, upper, 1)) +
+  geom_area(data = filter(blood.data, id == "sick" & X > tau), aes(x = X, y = p),
+            fill = "grey9") +
+  geom_line(data = filter(blood.data, id == "sick" & X > tau),
+            size = 1.5, col = "grey9") +
+  scale_fill_discrete(name = "Population",
+                    breaks = c("healthy", "sick"),
+                    labels = c("Healthy", "Sick")) 
+```
+
+
+## 4.6.1 - Calculating the probability of β
+
+```{r, echo = T}
+1 - pnorm(2, mean = 2, sd = 1)
+```
+
+# Power = 0.5
+
+* The power represents the complementary event of the Type II error, and thus it's probability is 1 - P(β)
+
+* This is represented by the complementary area of the previous bell
+
+## 4.6.2 - Probability of $\alpha$, $\beta$ and the power as a function of $\tau$
+
+* We can repeat the same calculation for several values of $\tau$ using curve()
+
+* Just select the y element in the output list
+
+```{r}
+tau <- seq(from = lower, to = upper, length.out = length.out)
+```
+
+```{r, echo = T, include = F}
+
+alpha <- curve( {1 - pnorm(x, mean = 0, sd = 1)},
+                from = lower, to = upper, n = length.out)$y
+
+beta <- curve( {pnorm(x, mean = 2, sd = 1)},
+               from = lower, to = upper, n = length.out,
+               add = T)$y
+
+power <- 1 - beta
+```
+
+```{r}
+data <- data.frame(
+  τ = tau,
+  name = as.factor(rep(c("alpha", "beta", "power"), each = length.out)),
+  value = c(alpha, beta, power)
+)
+```
+
+## 4.6.2 - Visualization
+
+```{r}
+data$id <- 1:nrow(data)
+
+base <- data %>%
+  ggvis(~τ, ~value, stroke = ~name, key := ~id) %>%
+  #layer_lines(strokeWidth := 5) %>%
+  layer_points(fill = ~name)
+base %>% add_tooltip(function(data){paste0(data$name, "<br />Value: ", round(data$value, digits = 2), "<br />Tau:", data$tau)}, "hover")
+```
+
+
+# Trade off $\alpha$ and $\beta$
+
+* We can't decrase $\alpha$ without increasing $\alpha$
+
+* The compromise will favour very low values of $\alpha$ because it's more dangerous
+
+* The power obviously increases as $\beta$ decreases
 
 ## 4.7 - Can the exponential distribution provide enough detail to fit our data?
 
 Compare the fit offered by the gamma and exponential distributions
+
+
+```{r fig.width = 6, echo = FALSE}
+img <- readPNG("figures/curves_2.png")
+grid.raster(img)
+```
+
 
 ## Download the data
 
@@ -381,7 +613,6 @@ The obtained p-value is very low, thus we discard the null hypothesis
 ## Visualization
 
 ```{r, echo = F}
-library("shiny")
 shinyAppDir(appDir = "ex4_7/")
 ```
 

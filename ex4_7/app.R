@@ -27,37 +27,25 @@ p.value <- 1 - pchisq(statistic, df = 1)
 
 
 ui <- fluidPage(
-  #generate a slider input
-  #store the number under num
-  fluidRow( tags$b("Distribution parameters"), tags$br(), tags$br() ),
   
-  fluidRow(
-    column(4, tags$b("Exponential"), tags$br()),
-    column(8, tags$b("Gamma"), tags$br())),
-  
- 
-  fluidRow(column(4, 
-                  sliderInput(inputId = "lambda",
-                                  label = "Choose exponential rate",
-                                  value = exp.optim, min = 0.01, max = 3)),
-           
-           
-                      column(4, 
-                             sliderInput(inputId = "shape",
-                                 label = "Choose shape",
-                                 value = gamma.optim$par[1], min = 0.01, max = 3)),
-                      column(4, sliderInput(inputId = "rate",
-                                 label = "Choose rate",
-                                 value = gamma.optim$par[2], min = 0.01, max = 3))),
+  titlePanel("Which distribution fits best the neuron dataset?"),
+  sidebarPanel(sliderInput(inputId = "lambda",
+                        label = "Choose exponential rate",
+                        value = exp.optim, min = 0.01, max = 3),
+            sliderInput(inputId = "shape",
+                        label = "Choose shape",
+                        value = gamma.optim$par[1], min = 0.01, max = 3),
+            sliderInput(inputId = "rate",
+                        label = "Choose rate",
+                        value = gamma.optim$par[2], min = 0.01, max = 3),
+            helpText("Parameters initialized at optimal values"),
+            helpText("Modify to see changes")), # end of sidebarPanel
 
-  #leave a display space and plot the hist object
-  fluidRow(
-    plotOutput("hist")
-  ),
   
-  fluidRow(
-    column(12, tags$b("Gamma distribution fits way better our data")
-  ))
+  mainPanel(
+    plotOutput("hist")
+    ), # end of mainPanel
+  helpText("Gamma distribution fits way better our data")
 )
 
 server <- function(input, output) {
