@@ -180,7 +180,7 @@ $- \left( \sum_{ i = 1 }^{ 20 } { \log { f_X\left( x_{ i } \right)  } } + \sum_{
 
 ## R Implementation
 
-```{r}
+```{r, echo = T}
 # nested
 mllk <- function(params) {
     -(xy %>% dnorm(params[1], params[2], log=TRUE) %>% sum)

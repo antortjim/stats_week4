@@ -2,8 +2,8 @@ name: exercise_4_app
 account: antortjim
 server: shinyapps.io
 appId: 146714
-bundleId: 657650
+bundleId: 658577
 url: https://antortjim.shinyapps.io/exercise_4_app/
-when: 1482350269.71082
+when: 1482423228.65169
 asMultiple: FALSE
 asStatic: FALSE
